@@ -33,13 +33,18 @@ const Home = () => {
     inventory: '',
     quantity: '',
     price: '',
+    location: '',
+    description: '',
   });
 
-  // State for search query
+  // State for search queries
   const [searchQuery, setSearchQuery] = useState('');
+  const [locationSearchQuery, setLocationSearchQuery] = useState('');
+
+  // New state to toggle filtering on current user's items only
+  const [showMyItems, setShowMyItems] = useState(false);
 
   // Sidebar state for profile editing
-  // Default profile: username from auth and empty contact/upi initially.
   const [profile, setProfile] = useState({
     username: user?.displayName || user?.email || '',
     contact: '',
@@ -52,6 +57,10 @@ const Home = () => {
   });
   const [profileForm, setProfileForm] = useState(profile);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // State for description modal
+  const [descModalOpen, setDescModalOpen] = useState(false);
+  const [currentDescription, setCurrentDescription] = useState('');
 
   // Load user profile from Firestore on mount (if exists)
   useEffect(() => {
@@ -76,10 +85,10 @@ const Home = () => {
   // Open surplus modal
   const openModal = () => setModalOpen(true);
 
-  // Close modal and reset form
+  // Close surplus modal and reset form
   const closeModal = () => {
     setModalOpen(false);
-    setForm({ inventory: '', quantity: '', price: '' });
+    setForm({ inventory: '', quantity: '', price: '', location: '', description: '' });
   };
 
   // Toggle sidebar visibility
@@ -92,11 +101,11 @@ const Home = () => {
     setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
   };
 
-  // Toggle editing for a specific field
+  // Toggle editing for a specific profile field
   const toggleEditing = (field) => {
     setEditing({ ...editing, [field]: !editing[field] });
     if (editing[field]) {
-      // If canceling edit, reset the form field to the current profile value
+      // Reset field if cancelling edit
       setProfileForm({ ...profileForm, [field]: profile[field] });
     }
   };
@@ -113,14 +122,24 @@ const Home = () => {
     setEditing({ ...editing, [field]: false });
   };
 
-  // Handle surplus form changes
+  // Handle changes in the surplus item form
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Handle search query changes
+  // Handle search query changes for inventory
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
+  };
+
+  // Handle search query changes for location
+  const handleLocationSearchChange = (e) => {
+    setLocationSearchQuery(e.target.value);
+  };
+
+  // Toggle filtering to show only items added by the current user
+  const toggleShowMyItems = () => {
+    setShowMyItems(!showMyItems);
   };
 
   // Delete a specific surplus item
@@ -132,7 +151,7 @@ const Home = () => {
     }
   };
 
-  // Handle submission of surplus item
+  // Handle submission of a surplus item
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -186,14 +205,17 @@ const Home = () => {
     return () => unsubscribe();
   }, []);
 
-  // Filter surplus items based on the search query (case-insensitive)
-  const filteredSurplusData = surplusData.filter((item) =>
-    item.inventory.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter surplus items based on the search queries and current user filter (case-insensitive)
+  const filteredSurplusData = surplusData.filter((item) => {
+    const inventoryMatch = item.inventory.toLowerCase().includes(searchQuery.toLowerCase());
+    const locationMatch = item.location.toLowerCase().includes(locationSearchQuery.toLowerCase());
+    const myItemMatch = showMyItems ? item.userId === user.uid : true;
+    return inventoryMatch && locationMatch && myItemMatch;
+  });
 
   return (
     <div className="container">
-      {/* Search Bar */}
+      {/* Inventory Search Bar */}
       <div className="search-bar">
         <input
           type="text"
@@ -201,6 +223,23 @@ const Home = () => {
           value={searchQuery}
           onChange={handleSearchChange}
         />
+      </div>
+
+      {/* Location Search Bar */}
+      <div className="search-bar">
+        <input
+          type="text"
+          placeholder="Search by Location (country, state, city)..."
+          value={locationSearchQuery}
+          onChange={handleLocationSearchChange}
+        />
+      </div>
+
+      {/* Toggle My Items Button */}
+      <div className="action-buttons">
+        <button onClick={toggleShowMyItems} className="btn toggle-myitems-btn">
+          {showMyItems ? 'Show All Items' : 'Show My Items'}
+        </button>
       </div>
 
       {/* Hamburger Button */}
@@ -283,7 +322,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons for Adding/Deleting Items */}
       <div className="action-buttons">
         <button onClick={openModal} className="btn surplus-btn">
           Add Inventory
@@ -293,7 +332,7 @@ const Home = () => {
         </button>
       </div>
 
-      {/* Surplus Modal */}
+      {/* Surplus Modal for Adding Items */}
       {modalOpen && (
         <div className="modal" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -333,6 +372,26 @@ const Home = () => {
                   placeholder="Price"
                 />
               </div>
+              <div className="form-group">
+                <label>Location (country, state, city)</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., USA, California, San Francisco"
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  placeholder="Item description (optional)"
+                />
+              </div>
               <div className="form-buttons">
                 <button type="submit" className="btn submit-btn">
                   Submit
@@ -342,6 +401,19 @@ const Home = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Showing Description */}
+      {descModalOpen && (
+        <div className="modal" onClick={() => setDescModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Item Description</h2>
+            <p>{currentDescription}</p>
+            <button onClick={() => setDescModalOpen(false)} className="btn cancel-btn">
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -359,6 +431,9 @@ const Home = () => {
                 <strong>Price:</strong> ${item.price}
               </p>
               <p>
+                <strong>Location:</strong> {item.location}
+              </p>
+              <p>
                 <strong>User ID:</strong> {item.userId}
               </p>
               <p>
@@ -370,10 +445,28 @@ const Home = () => {
               <p>
                 <strong>UPI ID:</strong> {item.upi}
               </p>
-              {item.userId === user.uid && (
-                <button onClick={() => handleDeleteItem(item.id)} className="btn delete-btn">
-                  Delete
-                </button>
+              {(item.description || item.userId === user.uid) && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {item.description && (
+                    <button
+                      className="btn view-desc-btn"
+                      onClick={() => {
+                        setCurrentDescription(item.description);
+                        setDescModalOpen(true);
+                      }}
+                    >
+                      View Description
+                    </button>
+                  )}
+                  {item.userId === user.uid && (
+                    <button
+                      onClick={() => handleDeleteItem(item.id)}
+                      className="btn delete-btn"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           ))}
