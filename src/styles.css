@@ -1,0 +1,141 @@
+/* Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: #333;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Container */
+.container {
+  width: 100%;
+  padding: 50px;
+  max-width: 800px; /* Increased width from 500px to 800px */
+  margin: 0 auto;
+}
+
+/* Card Styling */
+.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  padding: 30px;
+  margin-bottom: 20px;
+}
+
+/* Auth Card Specific */
+.auth-card {
+  text-align: center;
+}
+
+.auth-card h2 {
+  margin-bottom: 20px;
+  color: #4facfe;
+}
+
+/* Input Fields */
+.card input {
+  width: 100%;
+  padding: 12px 15px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+/* Error Message */
+.error {
+  background: #ffe6e6;
+  color: #d9534f;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* Primary Button */
+.primary-button {
+  width: 100%;
+  padding: 12px;
+  background: #4facfe;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin: 10px 0;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.primary-button:hover {
+  background: #00f2fe;
+  transform: translateY(-2px);
+}
+
+/* Social Buttons */
+.social-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px;
+  background: #555;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.social-button:hover {
+  background: #444;
+  transform: translateY(-2px);
+}
+
+.social-button img {
+  width: 24px;
+  height: auto;
+  margin-right: 10px;
+}
+
+/* Alternate Text */
+.alternate {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.alternate span {
+  color: #4facfe;
+  cursor: pointer;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+.alternate span:hover {
+  color: #00f2fe;
+}
+
+/* Button Container */
+.button-container {
+  margin: 15px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
