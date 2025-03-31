@@ -4,17 +4,19 @@ import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { db } from './firebase';
-import { collection, addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { 
+  collection, addDoc, onSnapshot, deleteDoc, doc, getDoc, setDoc 
+} from 'firebase/firestore';
 import './styles2.css';
 
 const Home = () => {
   const user = auth.currentUser;
   const navigate = useNavigate();
 
-  // Reference to the entire surplusItems collection
+  // Reference to the surplusItems collection
   const surplusCollectionRef = collection(db, 'surplusItems');
 
-  // Function to handle log out
+  // Logout function
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -33,36 +35,130 @@ const Home = () => {
     price: '',
   });
 
-  // Open the surplus modal
+  // State for search query
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Sidebar state for profile editing
+  // Default profile: username from auth and empty contact/upi initially.
+  const [profile, setProfile] = useState({
+    username: user?.displayName || user?.email || '',
+    contact: '',
+    upi: '',
+  });
+  const [editing, setEditing] = useState({
+    username: false,
+    contact: false,
+    upi: false,
+  });
+  const [profileForm, setProfileForm] = useState(profile);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Load user profile from Firestore on mount (if exists)
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        try {
+          const docSnap = await getDoc(userDocRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setProfile(data);
+            setProfileForm(data);
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error.message);
+        }
+      }
+    };
+    loadUserProfile();
+  }, [user]);
+
+  // Open surplus modal
   const openModal = () => setModalOpen(true);
 
-  // Close the modal and reset form
+  // Close modal and reset form
   const closeModal = () => {
     setModalOpen(false);
     setForm({ inventory: '', quantity: '', price: '' });
   };
 
-  // Handle input changes in the form
+  // Toggle sidebar visibility
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  // Handle profile form changes
+  const handleProfileChange = (e) => {
+    setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
+  };
+
+  // Toggle editing for a specific field
+  const toggleEditing = (field) => {
+    setEditing({ ...editing, [field]: !editing[field] });
+    if (editing[field]) {
+      // If canceling edit, reset the form field to the current profile value
+      setProfileForm({ ...profileForm, [field]: profile[field] });
+    }
+  };
+
+  // Save the edited profile field to Firestore and update state
+  const saveProfileField = async (field) => {
+    const newProfile = { ...profile, [field]: profileForm[field] };
+    try {
+      await setDoc(doc(db, 'users', user.uid), newProfile, { merge: true });
+      setProfile(newProfile);
+    } catch (error) {
+      console.error('Error saving profile field:', error.message);
+    }
+    setEditing({ ...editing, [field]: false });
+  };
+
+  // Handle surplus form changes
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Handle form submission and add surplus data to Firestore
+  // Handle search query changes
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // Delete a specific surplus item
+  const handleDeleteItem = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'surplusItems', id));
+    } catch (err) {
+      console.error('Error deleting document: ', err.message);
+    }
+  };
+
+  // Handle submission of surplus item
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Ensure that username and contact are set
+    if (!profile.username || !profile.contact) {
+      alert('Please fill your username and contact first in the sidebar.');
+      return;
+    }
+
     try {
-      // Save entry globally without user filtering
-      await addDoc(surplusCollectionRef, form);
-      closeModal(); // Modal closes after submit
+      await addDoc(surplusCollectionRef, {
+        ...form,
+        userId: user.uid,
+        username: profile.username,
+        contact: profile.contact,
+        upi: profile.upi,
+      });
+      closeModal();
     } catch (err) {
       console.error('Error adding document: ', err.message);
     }
   };
 
-  // Handle delete all inventory (global deletion)
+  // Delete all surplus items (global deletion)
   const handleDeleteAll = async () => {
     try {
-      // Loop through the current surplusData and delete each document
       for (const item of surplusData) {
         await deleteDoc(doc(db, 'surplusItems', item.id));
       }
@@ -71,7 +167,7 @@ const Home = () => {
     }
   };
 
-  // Use Firestore's onSnapshot to listen for real-time updates globally
+  // Listen for real-time updates in the surplusItems collection
   useEffect(() => {
     const unsubscribe = onSnapshot(
       surplusCollectionRef,
@@ -87,15 +183,99 @@ const Home = () => {
       }
     );
 
-    // Clean up the listener on unmount
     return () => unsubscribe();
-  }, []); // Listener set up only once for the entire collection
+  }, []);
+
+  // Filter surplus items based on the search query (case-insensitive)
+  const filteredSurplusData = surplusData.filter((item) =>
+    item.inventory.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="container">
+      {/* Search Bar */}
+      <div className="search-bar">
+        <input
+          type="text"
+          placeholder="Search Inventory..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+        />
+      </div>
+
+      {/* Hamburger Button */}
+      <button className="hamburger-btn" onClick={toggleSidebar}>
+        &#9776;
+      </button>
+
+      {/* Sidebar for Profile Editing */}
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <h2>Profile</h2>
+        <div className="profile-field">
+          <label>Username:</label>
+          {editing.username ? (
+            <>
+              <input
+                type="text"
+                name="username"
+                value={profileForm.username}
+                onChange={handleProfileChange}
+              />
+              <button onClick={() => saveProfileField('username')}>Save</button>
+              <button onClick={() => toggleEditing('username')}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <span>{profile.username}</span>
+              <button onClick={() => toggleEditing('username')}>Edit</button>
+            </>
+          )}
+        </div>
+        <div className="profile-field">
+          <label>Contact:</label>
+          {editing.contact ? (
+            <>
+              <input
+                type="text"
+                name="contact"
+                value={profileForm.contact}
+                onChange={handleProfileChange}
+              />
+              <button onClick={() => saveProfileField('contact')}>Save</button>
+              <button onClick={() => toggleEditing('contact')}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <span>{profile.contact}</span>
+              <button onClick={() => toggleEditing('contact')}>Edit</button>
+            </>
+          )}
+        </div>
+        <div className="profile-field">
+          <label>UPI ID:</label>
+          {editing.upi ? (
+            <>
+              <input
+                type="text"
+                name="upi"
+                value={profileForm.upi}
+                onChange={handleProfileChange}
+              />
+              <button onClick={() => saveProfileField('upi')}>Save</button>
+              <button onClick={() => toggleEditing('upi')}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <span>{profile.upi}</span>
+              <button onClick={() => toggleEditing('upi')}>Edit</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Header */}
       <div className="header">
         <h1>Welcome, {user && (user.displayName || user.email)}!</h1>
-        <h2>Welcome To Collaboratory!</h2>
         <div className="header-buttons">
           <button onClick={handleLogout} className="btn logout-btn">
             Log Out
@@ -103,6 +283,7 @@ const Home = () => {
         </div>
       </div>
 
+      {/* Action Buttons */}
       <div className="action-buttons">
         <button onClick={openModal} className="btn surplus-btn">
           Add Inventory
@@ -165,10 +346,10 @@ const Home = () => {
         </div>
       )}
 
-      {/* Display surplus data in cards */}
-      {surplusData.length > 0 && (
+      {/* Display Filtered Surplus Data */}
+      {filteredSurplusData.length > 0 && (
         <div className="card-container">
-          {surplusData.map((item) => (
+          {filteredSurplusData.map((item) => (
             <div key={item.id} className="card">
               <h3>{item.inventory}</h3>
               <p>
@@ -177,6 +358,23 @@ const Home = () => {
               <p>
                 <strong>Price:</strong> ${item.price}
               </p>
+              <p>
+                <strong>User ID:</strong> {item.userId}
+              </p>
+              <p>
+                <strong>Username:</strong> {item.username}
+              </p>
+              <p>
+                <strong>Contact:</strong> {item.contact}
+              </p>
+              <p>
+                <strong>UPI ID:</strong> {item.upi}
+              </p>
+              {item.userId === user.uid && (
+                <button onClick={() => handleDeleteItem(item.id)} className="btn delete-btn">
+                  Delete
+                </button>
+              )}
             </div>
           ))}
         </div>
